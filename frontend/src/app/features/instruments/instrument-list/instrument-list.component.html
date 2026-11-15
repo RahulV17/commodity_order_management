@@ -1,0 +1,219 @@
+<div class="page">
+  <app-page-header
+    eyebrow="Commodity catalogue"
+    title="Instruments"
+    subtitle="Search the MongoDB-backed catalogue. Administrators can create instruments, edit details, and activate or deactivate trading."
+  >
+    <button type="button" class="btn btn--ghost" (click)="refresh()" [disabled]="loading">
+      Refresh
+    </button>
+    <button type="button" class="btn btn--primary" *ngIf="isAdmin" (click)="openCreate()">
+      Add instrument
+    </button>
+  </app-page-header>
+
+  <div class="alert alert--info" *ngIf="!isAdmin">
+    <strong>i</strong>
+    <span>
+      You have read-only access to the catalogue. Instrument changes require the ADMIN role and are
+      enforced by the backend as well as this screen.
+    </span>
+  </div>
+
+  <section class="card">
+    <div class="toolbar">
+      <div class="search-box instrument-search">
+        <input
+          class="input"
+          type="search"
+          placeholder="Search by name or symbol"
+          [formControl]="searchControl"
+          aria-label="Search instruments"
+        />
+      </div>
+      <label class="filter-inline">
+        <span class="label">Status</span>
+        <select class="select" [formControl]="filterControl" aria-label="Filter by status">
+          <option value="all">All instruments</option>
+          <option value="active">Active only</option>
+          <option value="inactive">Inactive only</option>
+        </select>
+      </label>
+      <span class="spacer"></span>
+      <span class="result-count">{{ instruments.length }} result(s)</span>
+    </div>
+
+    <div class="alert alert--error table-alert" *ngIf="errorMessage">
+      <strong>!</strong>
+      <span>{{ errorMessage }}</span>
+    </div>
+
+    <div class="table-wrap">
+      <table class="table" *ngIf="instruments.length; else noInstruments">
+        <thead>
+          <tr>
+            <th>Instrument</th>
+            <th>Category</th>
+            <th class="num">Indicative price</th>
+            <th>Status</th>
+            <th>Order activity</th>
+            <th>Last order</th>
+            <th class="actions">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let instrument of instruments">
+            <td>
+              <div class="instrument-cell">
+                <span class="instrument-symbol">{{ instrument.symbol }}</span>
+                <span class="instrument-name">{{ instrument.name }}</span>
+                <span class="instrument-id mono">{{ instrument.id }}</span>
+              </div>
+            </td>
+            <td>
+              <span class="badge badge--gold">{{ instrument.category | statusLabel }}</span>
+            </td>
+            <td class="num price">{{ instrument.indicativePrice | number: '1.2-4' }}</td>
+            <td><app-status-badge [status]="instrument.active ? 'ACTIVE' : 'INACTIVE'" /></td>
+            <td>
+              <span class="activity-count">{{ instrument.activityCount }}</span>
+              <span class="muted small"> Kafka event(s)</span>
+            </td>
+            <td class="muted small">
+              {{ instrument.lastOrderAt ? (instrument.lastOrderAt | date: 'dd MMM, HH:mm') : '—' }}
+            </td>
+            <td>
+              <div class="actions" *ngIf="isAdmin; else readOnly">
+                <button type="button" class="btn btn--ghost btn--sm" (click)="openEdit(instrument)">
+                  Edit
+                </button>
+                <button
+                  type="button"
+                  class="btn btn--sm"
+                  [class.btn--danger]="instrument.active"
+                  [class.btn--success]="!instrument.active"
+                  (click)="toggleStatus(instrument)"
+                >
+                  {{ instrument.active ? 'Deactivate' : 'Activate' }}
+                </button>
+              </div>
+              <ng-template #readOnly><span class="muted small">View only</span></ng-template>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+
+      <ng-template #noInstruments>
+        <app-empty-state
+          *ngIf="!loading"
+          title="No instruments found"
+          message="Try a different search term or status filter. Administrators can add a new commodity instrument."
+          mark="◆"
+        >
+          <button class="btn btn--primary btn--sm" *ngIf="isAdmin" (click)="openCreate()">
+            Add instrument
+          </button>
+        </app-empty-state>
+        <div class="table-loading" *ngIf="loading">
+          <span class="skeleton loading-row" *ngFor="let row of [1, 2, 3, 4]"></span>
+        </div>
+      </ng-template>
+    </div>
+  </section>
+
+  <app-modal
+    *ngIf="showForm"
+    [title]="editing ? 'Edit instrument' : 'Create instrument'"
+    [subtitle]="
+      editing
+        ? 'The id is immutable. Changes evict the Redis cache entry for this instrument.'
+        : 'The id becomes the MongoDB _id and is used by orders and Feign validation.'
+    "
+    (closed)="closeForm()"
+  >
+    <div class="alert alert--error" *ngIf="formError">
+      <strong>!</strong>
+      <span>{{ formError }}</span>
+    </div>
+
+    <form [formGroup]="instrumentForm" (ngSubmit)="save()" novalidate>
+      <div class="form-grid">
+        <div class="field span-2">
+          <label class="label" for="instrumentId">Instrument id</label>
+          <input
+            id="instrumentId"
+            class="input mono"
+            [class.input--invalid]="fieldError('id')"
+            formControlName="id"
+            placeholder="PLATINUM-001"
+          />
+          <span class="hint">Uppercase letters, digits and hyphens. Example: GOLD-001.</span>
+          <span class="error-text" *ngIf="fieldError('id')">
+            Use 3-32 uppercase letters, digits or hyphens.
+          </span>
+        </div>
+
+        <div class="field">
+          <label class="label" for="symbol">Symbol</label>
+          <input
+            id="symbol"
+            class="input mono"
+            [class.input--invalid]="fieldError('symbol')"
+            formControlName="symbol"
+            placeholder="GOLD"
+          />
+          <span class="error-text" *ngIf="fieldError('symbol')">
+            Symbol must be 2-16 uppercase letters or digits.
+          </span>
+        </div>
+
+        <div class="field">
+          <label class="label" for="category">Category</label>
+          <select id="category" class="select" formControlName="category">
+            <option *ngFor="let category of categories" [value]="category">
+              {{ category | statusLabel }}
+            </option>
+          </select>
+        </div>
+
+        <div class="field span-2">
+          <label class="label" for="name">Name</label>
+          <input
+            id="name"
+            class="input"
+            [class.input--invalid]="fieldError('name')"
+            formControlName="name"
+            placeholder="Gold"
+          />
+          <span class="error-text" *ngIf="fieldError('name')">Name is required.</span>
+        </div>
+
+        <div class="field span-2">
+          <label class="label" for="price">Indicative price</label>
+          <input
+            id="price"
+            class="input"
+            type="number"
+            min="0.0001"
+            step="0.0001"
+            [class.input--invalid]="fieldError('indicativePrice')"
+            formControlName="indicativePrice"
+          />
+          <span class="hint">Used to prefill order price. This is demo data, not live market data.</span>
+          <span class="error-text" *ngIf="fieldError('indicativePrice')">
+            Enter a price greater than zero.
+          </span>
+        </div>
+      </div>
+
+      <div class="form-actions">
+        <button type="button" class="btn btn--ghost" (click)="closeForm()" [disabled]="saving">
+          Cancel
+        </button>
+        <button type="submit" class="btn btn--primary" [disabled]="saving">
+          {{ saving ? 'Saving…' : editing ? 'Save changes' : 'Create instrument' }}
+        </button>
+      </div>
+    </form>
+  </app-modal>
+</div>

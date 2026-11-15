@@ -1,0 +1,340 @@
+<div class="page">
+  <app-page-header
+    eyebrow="Order desk"
+    [title]="order ? order.orderNumber : 'Order details'"
+    [subtitle]="
+      order
+        ? order.instrumentName + ' · ' + order.instrumentId
+        : 'Loading the order, its lifecycle and its documents.'
+    "
+  >
+    <a class="btn btn--ghost" routerLink="/orders">Back to orders</a>
+    <app-status-badge *ngIf="order" [status]="order.status" class="header-status" />
+    <button
+      *ngIf="canSubmit"
+      type="button"
+      class="btn btn--accent"
+      [disabled]="actionInProgress"
+      (click)="runAction('submit')"
+    >
+      Submit
+    </button>
+    <button
+      *ngIf="canApproveOrReject"
+      type="button"
+      class="btn btn--success"
+      [disabled]="actionInProgress"
+      (click)="runAction('approve')"
+    >
+      Approve
+    </button>
+    <button
+      *ngIf="canApproveOrReject"
+      type="button"
+      class="btn btn--ghost action-reject"
+      [disabled]="actionInProgress"
+      (click)="openReject()"
+    >
+      Reject
+    </button>
+    <button
+      *ngIf="canCancel"
+      type="button"
+      class="btn btn--ghost"
+      [disabled]="actionInProgress"
+      (click)="runAction('cancel')"
+    >
+      Cancel
+    </button>
+  </app-page-header>
+
+  <div class="alert alert--error" *ngIf="errorMessage">
+    <strong>!</strong>
+    <div class="alert__body">
+      <span>{{ errorMessage }}</span>
+      <a class="alert__link" routerLink="/orders">Return to the order list</a>
+    </div>
+  </div>
+
+  <div class="skeleton detail-skeleton" *ngIf="loading"></div>
+
+  <div class="detail-layout" *ngIf="!loading && order">
+    <div class="stack">
+      <section class="card">
+        <div class="summary-head">
+          <div class="summary-identity">
+            <span class="summary-symbol">{{ order.instrumentSymbol }}</span>
+            <div>
+              <h2>{{ order.orderNumber }}</h2>
+              <p class="muted">
+                {{ order.instrumentName }} · <span class="mono">{{ order.instrumentId }}</span>
+              </p>
+            </div>
+          </div>
+          <div class="row row--wrap">
+            <span
+              class="badge"
+              [class]="'badge ' + (order.orderType === 'BUY' ? 'badge--buy' : 'badge--sell')"
+            >
+              {{ order.orderType | statusLabel }}
+            </span>
+            <app-status-badge [status]="order.status" />
+          </div>
+        </div>
+
+        <dl class="detail-grid">
+          <div>
+            <dt>Quantity</dt>
+            <dd>{{ order.quantity | number: '1.0-4' }}</dd>
+          </div>
+          <div>
+            <dt>Price</dt>
+            <dd>{{ order.price | number: '1.2-4' }}</dd>
+          </div>
+          <div>
+            <dt>Estimated value</dt>
+            <dd class="emphasis">{{ totalValue | number: '1.2-2' }}</dd>
+          </div>
+          <div>
+            <dt>Created by</dt>
+            <dd>{{ order.createdBy }}</dd>
+          </div>
+          <div>
+            <dt>Created</dt>
+            <dd>{{ order.createdAt | date: 'dd MMM yyyy, HH:mm:ss' }}</dd>
+          </div>
+          <div>
+            <dt>Last update</dt>
+            <dd>{{ order.updatedAt | date: 'dd MMM yyyy, HH:mm:ss' }}</dd>
+          </div>
+          <div>
+            <dt>Order id</dt>
+            <dd class="mono">{{ order.id }}</dd>
+          </div>
+          <div>
+            <dt>View</dt>
+            <dd>{{ isAdmin ? 'Administrator (all orders)' : 'Owner (own orders)' }}</dd>
+          </div>
+        </dl>
+
+        <div class="notes">
+          <h3>Remarks</h3>
+          <p *ngIf="order.remarks; else noRemarks">{{ order.remarks }}</p>
+          <ng-template #noRemarks>
+            <p class="muted">No remarks were added when the order was created.</p>
+          </ng-template>
+        </div>
+
+        <div class="alert alert--error rejection" *ngIf="order.status === 'REJECTED'">
+          <strong>!</strong>
+          <div>
+            <strong>Rejection reason</strong>
+            <p>{{ order.rejectionReason || 'No reason was stored for this rejection.' }}</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="card documents-card">
+        <div class="card__body">
+          <div class="documents-head">
+            <div>
+              <h2 class="section-title">Supporting documents</h2>
+              <p class="section-subtitle">
+                Optional PDF, PNG, JPEG, DOCX or XLSX files up to 5 MB. Uploads go through the
+                order-service storage abstraction (local filesystem by default, S3 when
+                <code>app.storage.type=s3</code>) and are downloaded through an authenticated
+                endpoint, never from a public URL.
+              </p>
+            </div>
+            <span class="spacer"></span>
+            <button
+              type="button"
+              class="btn btn--ghost btn--sm"
+              [disabled]="documentsLoading"
+              (click)="reloadDocuments()"
+            >
+              Refresh documents
+            </button>
+          </div>
+
+          <div class="alert alert--error" *ngIf="documentsError">
+            <strong>!</strong>
+            <span>
+              Documents could not be listed. The order itself loaded, so this is limited to the
+              document endpoint or the storage backend.
+            </span>
+          </div>
+
+          <div class="alert alert--error" *ngIf="documentError">
+            <strong>!</strong>
+            <span>{{ documentError }}</span>
+          </div>
+
+          <div class="document-list" *ngIf="documents.length; else noDocuments">
+            <div class="document-row" *ngFor="let document of documents">
+              <span class="document-icon" aria-hidden="true">▤</span>
+              <div class="document-meta">
+                <strong>{{ document.fileName }}</strong>
+                <span>
+                  {{ formatBytes(document.sizeBytes) }} · uploaded
+                  {{ document.uploadedAt | date: 'dd MMM yyyy, HH:mm' }} by
+                  {{ document.uploadedBy }}
+                </span>
+              </div>
+              <button
+                type="button"
+                class="btn btn--ghost btn--sm"
+                [disabled]="downloadingId === document.id"
+                (click)="downloadDocument(document)"
+              >
+                {{ downloadingId === document.id ? 'Downloading…' : 'Download' }}
+              </button>
+            </div>
+          </div>
+
+          <ng-template #noDocuments>
+            <p class="empty-documents" *ngIf="!documentsLoading">
+              No documents have been attached to this order yet.
+            </p>
+          </ng-template>
+
+          <div class="upload-row">
+            <label class="btn btn--ghost btn--sm file-button">
+              Choose file
+              <input
+                #fileInput
+                type="file"
+                hidden
+                accept=".pdf,.png,.jpg,.jpeg,.docx,.xlsx"
+                (change)="onFileSelected($event)"
+              />
+            </label>
+            <span class="file-name muted small">
+              {{
+                selectedFile
+                  ? selectedFile.name + ' · ' + formatBytes(selectedFile.size)
+                  : 'No file selected'
+              }}
+            </span>
+            <button
+              type="button"
+              class="btn btn--primary btn--sm"
+              [disabled]="!selectedFile || uploading"
+              (click)="uploadDocument()"
+            >
+              {{ uploading ? 'Uploading…' : 'Upload' }}
+            </button>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <aside class="stack side-column">
+      <section class="card">
+        <div class="card__body">
+          <p class="eyebrow">Lifecycle</p>
+          <h2 class="section-title">Status path</h2>
+          <ol class="timeline">
+            <li
+              *ngFor="let stage of timeline"
+              [class]="'timeline__item timeline__item--' + stage.state"
+            >
+              <span
+                class="timeline__dot"
+                [class]="'timeline__dot timeline__dot--' + stage.status.toLowerCase()"
+              ></span>
+              <div class="timeline__content">
+                <div class="timeline__head">
+                  <strong>{{ stage.status | statusLabel }}</strong>
+                  <span class="timeline__time" *ngIf="stage.time">
+                    {{ stage.time | date: 'dd MMM, HH:mm' }}
+                  </span>
+                </div>
+                <p>{{ stage.description }}</p>
+              </div>
+            </li>
+          </ol>
+          <p class="hint">
+            The build stores the current state and its timestamps. It does not persist a full
+            transition audit trail, so intermediate times are not invented here.
+          </p>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="card__body">
+          <p class="eyebrow">API trace</p>
+          <h2 class="section-title">Calls behind this screen</h2>
+          <ul class="api-list">
+            <li>
+              <code>GET /api/orders/{{ order.id }}</code>
+              <span>Loads the order; ownership is enforced in the service.</span>
+            </li>
+            <li>
+              <code>GET /api/orders/{{ order.id }}/documents</code>
+              <span>Lists attachments through the authenticated document endpoint.</span>
+            </li>
+            <li>
+              <code>PATCH /api/orders/{{ order.id }}/submit</code>
+              <span>NEW → SUBMITTED. Owner or administrator.</span>
+            </li>
+            <li>
+              <code>PATCH /api/orders/{{ order.id }}/approve</code>
+              <span>SUBMITTED → APPROVED. ADMIN only.</span>
+            </li>
+            <li>
+              <code>PATCH /api/orders/{{ order.id }}/reject</code>
+              <span>SUBMITTED → REJECTED with a reason. ADMIN only.</span>
+            </li>
+            <li>
+              <code>PATCH /api/orders/{{ order.id }}/cancel</code>
+              <span>NEW or SUBMITTED → CANCELLED. Owner or administrator.</span>
+            </li>
+          </ul>
+        </div>
+      </section>
+    </aside>
+  </div>
+
+  <app-modal
+    *ngIf="showRejectModal && order"
+    title="Reject order"
+    [subtitle]="
+      order.orderNumber + ' will move to REJECTED. The reason is stored and shown on this page.'
+    "
+    (closed)="closeReject()"
+  >
+    <div class="alert alert--error" *ngIf="rejectError">
+      <strong>!</strong>
+      <span>{{ rejectError }}</span>
+    </div>
+
+    <form [formGroup]="rejectForm" (ngSubmit)="submitReject()" novalidate>
+      <div class="field">
+        <label class="label" for="detailRejectionReason">Rejection reason</label>
+        <textarea
+          id="detailRejectionReason"
+          class="textarea"
+          rows="4"
+          maxlength="500"
+          [class.input--invalid]="rejectReasonError()"
+          formControlName="reason"
+          placeholder="Explain why this order is being rejected"
+        ></textarea>
+        <span class="hint">Required, 5–500 characters.</span>
+        <span class="error-text" *ngIf="rejectReasonError()">
+          Enter a reason between 5 and 500 characters.
+        </span>
+      </div>
+
+      <div class="form-actions">
+        <button type="button" class="btn btn--ghost" (click)="closeReject()" [disabled]="rejectSaving">
+          Cancel
+        </button>
+        <button type="submit" class="btn btn--danger" [disabled]="rejectSaving">
+          {{ rejectSaving ? 'Rejecting…' : 'Reject order' }}
+        </button>
+      </div>
+    </form>
+  </app-modal>
+</div>

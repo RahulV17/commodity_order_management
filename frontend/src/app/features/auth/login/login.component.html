@@ -1,0 +1,115 @@
+<div class="login-shell">
+  <section class="login-brand">
+    <div class="login-brand__top">
+      <span class="login-mark">NC</span>
+      <span class="login-wordmark">NCDEX · Commodity Desk</span>
+    </div>
+
+    <div class="login-brand__body">
+      <p class="login-kicker">Full-stack engineering challenge</p>
+      <h1>One desk for commodity instruments, orders and approvals.</h1>
+      <p class="login-copy">
+        Track BUY and SELL orders from submission to approval, monitor the
+        instrument catalogue, and see live operational statistics.
+      </p>
+
+      <ul class="login-points">
+        <li><span>01</span> Angular frontend through Spring Cloud Gateway</li>
+        <li><span>02</span> PostgreSQL orders · MongoDB instruments</li>
+        <li><span>03</span> JWT security · Kafka events · Redis cache</li>
+      </ul>
+    </div>
+
+    <div class="login-brand__foot">
+      <span>Local demonstration build</span>
+      <span>v1.0.0</span>
+    </div>
+  </section>
+
+  <section class="login-panel">
+    <div class="login-card">
+      <header>
+        <p class="eyebrow">Secure access</p>
+        <h2>Sign in to the operations console</h2>
+        <p class="muted small">
+          Use a demo account below. All API calls are routed through the API gateway.
+        </p>
+      </header>
+
+      <div class="alert alert--error" *ngIf="errorMessage" role="alert">
+        <strong>!</strong>
+        <span>{{ errorMessage }}</span>
+      </div>
+
+      <form [formGroup]="loginForm" (ngSubmit)="onSubmit()" novalidate>
+        <div class="field">
+          <label class="label" for="username">Username</label>
+          <input
+            id="username"
+            class="input"
+            [class.input--invalid]="submitted && usernameControl.invalid"
+            type="text"
+            formControlName="username"
+            autocomplete="username"
+            placeholder="admin or operator"
+          />
+          <span class="error-text" *ngIf="submitted && usernameControl.hasError('required')">
+            Username is required.
+          </span>
+          <span class="error-text" *ngIf="submitted && usernameControl.hasError('minlength')">
+            Username must be at least 3 characters.
+          </span>
+        </div>
+
+        <div class="field">
+          <label class="label" for="password">Password</label>
+          <div class="password-field">
+            <input
+              id="password"
+              class="input"
+              [class.input--invalid]="submitted && passwordControl.invalid"
+              [type]="showPassword ? 'text' : 'password'"
+              formControlName="password"
+              autocomplete="current-password"
+              placeholder="Enter your password"
+            />
+            <button
+              type="button"
+              class="password-toggle"
+              (click)="showPassword = !showPassword"
+              [attr.aria-label]="showPassword ? 'Hide password' : 'Show password'"
+            >
+              {{ showPassword ? 'Hide' : 'Show' }}
+            </button>
+          </div>
+          <span class="error-text" *ngIf="submitted && passwordControl.hasError('required')">
+            Password is required.
+          </span>
+          <span class="error-text" *ngIf="submitted && passwordControl.hasError('minlength')">
+            Password must be at least 6 characters.
+          </span>
+        </div>
+
+        <button class="btn btn--primary login-submit" type="submit" [disabled]="loading">
+          {{ loading ? 'Signing in…' : 'Sign in' }}
+        </button>
+      </form>
+
+      <div class="demo-accounts">
+        <p>Demo accounts</p>
+        <button type="button" class="demo-account" (click)="useDemo('admin', 'Admin@123')">
+          <span class="demo-account__role">Administrator</span>
+          <span class="mono">admin / Admin&#64;123</span>
+        </button>
+        <button type="button" class="demo-account" (click)="useDemo('operator', 'Operator@123')">
+          <span class="demo-account__role">Operations user</span>
+          <span class="mono">operator / Operator&#64;123</span>
+        </button>
+        <p class="demo-note">
+          Demo credentials are seeded with BCrypt hashes. Override them with environment variables
+          before any shared deployment.
+        </p>
+      </div>
+    </div>
+  </section>
+</div>

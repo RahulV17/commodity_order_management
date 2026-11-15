@@ -1,0 +1,271 @@
+<div class="page">
+  <app-page-header
+    eyebrow="Order desk"
+    title="Orders"
+    subtitle="Create commodity orders, submit them for approval, and track every state change. The API applies the lifecycle rules and role checks."
+  >
+    <button type="button" class="btn btn--ghost" (click)="refresh()" [disabled]="loading">
+      Refresh
+    </button>
+    <a class="btn btn--primary" routerLink="/orders/new">New order</a>
+  </app-page-header>
+
+  <div class="alert alert--info scope-note">
+    <strong>i</strong>
+    <span>
+      Operations users see and act on their own orders only. Administrators see every order and are
+      the only role allowed to approve or reject a submitted order. These rules are also enforced by
+      the order-service, not just by this screen.
+    </span>
+  </div>
+
+  <section class="card">
+    <div class="order-toolbar">
+      <div class="search-box order-search">
+        <input
+          class="input"
+          type="search"
+          placeholder="Search order number, symbol or instrument"
+          aria-label="Search orders"
+          [formControl]="searchControl"
+        />
+      </div>
+
+      <label class="filter-inline">
+        <span class="label">Status</span>
+        <select class="select" aria-label="Filter by status" [formControl]="statusControl">
+          <option value="">All statuses</option>
+          <option *ngFor="let status of statuses" [value]="status">
+            {{ status | statusLabel }}
+          </option>
+        </select>
+      </label>
+
+      <label class="filter-inline">
+        <span class="label">Instrument</span>
+        <select
+          class="select"
+          aria-label="Filter by instrument"
+          [formControl]="instrumentControl"
+        >
+          <option value="">All instruments</option>
+          <option *ngFor="let instrument of instruments" [value]="instrument.id">
+            {{ instrument.symbol }} — {{ instrument.name }}
+          </option>
+        </select>
+      </label>
+
+      <label class="filter-inline">
+        <span class="label">Sort</span>
+        <select class="select" aria-label="Sort orders" [formControl]="sortControl">
+          <option *ngFor="let option of sortOptions" [value]="option.value">
+            {{ option.label }}
+          </option>
+        </select>
+      </label>
+
+      <button type="button" class="btn btn--ghost btn--sm reset-button" (click)="resetFilters()">
+        Reset
+      </button>
+    </div>
+
+    <div class="alert alert--error table-alert" *ngIf="errorMessage">
+      <strong>!</strong>
+      <span>{{ errorMessage }}</span>
+    </div>
+
+    <div class="table-wrap">
+      <table class="table" *ngIf="orders.length; else emptyOrders">
+        <thead>
+          <tr>
+            <th>Order</th>
+            <th>Instrument</th>
+            <th>Type</th>
+            <th class="num">Quantity</th>
+            <th class="num">Price</th>
+            <th class="num">Value</th>
+            <th>Status</th>
+            <th class="actions">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let order of orders; trackBy: trackByOrderId">
+            <td>
+              <div class="order-cell">
+                <a class="order-link" [routerLink]="['/orders', order.id]">
+                  {{ order.orderNumber }}
+                </a>
+                <span class="order-meta">
+                  {{ order.createdAt | date: 'dd MMM yyyy, HH:mm' }} · {{ order.createdBy }}
+                </span>
+              </div>
+            </td>
+            <td>
+              <div class="instrument-cell">
+                <span class="instrument-symbol">{{ order.instrumentSymbol }}</span>
+                <div>
+                  <span class="instrument-name">{{ order.instrumentName }}</span>
+                  <span class="instrument-id mono">{{ order.instrumentId }}</span>
+                </div>
+              </div>
+            </td>
+            <td>
+              <span class="badge" [class]="'badge ' + typeClass(order.orderType)">
+                {{ order.orderType | statusLabel }}
+              </span>
+            </td>
+            <td class="num">{{ order.quantity | number: '1.0-4' }}</td>
+            <td class="num price">{{ order.price | number: '1.2-4' }}</td>
+            <td class="num value">{{ orderValue(order) | number: '1.2-2' }}</td>
+            <td><app-status-badge [status]="order.status" /></td>
+            <td>
+              <div class="actions">
+                <a class="btn btn--ghost btn--sm" [routerLink]="['/orders', order.id]">View</a>
+                <button
+                  *ngIf="canSubmit(order)"
+                  type="button"
+                  class="btn btn--accent btn--sm"
+                  [disabled]="actionInProgress === order.id"
+                  (click)="runAction(order, 'submit')"
+                >
+                  Submit
+                </button>
+                <button
+                  *ngIf="canApproveOrReject(order)"
+                  type="button"
+                  class="btn btn--success btn--sm"
+                  [disabled]="actionInProgress === order.id"
+                  (click)="runAction(order, 'approve')"
+                >
+                  Approve
+                </button>
+                <button
+                  *ngIf="canApproveOrReject(order)"
+                  type="button"
+                  class="btn btn--ghost btn--sm action-reject"
+                  [disabled]="actionInProgress === order.id"
+                  (click)="openReject(order)"
+                >
+                  Reject
+                </button>
+                <button
+                  *ngIf="canCancel(order)"
+                  type="button"
+                  class="btn btn--ghost btn--sm"
+                  [disabled]="actionInProgress === order.id"
+                  (click)="runAction(order, 'cancel')"
+                >
+                  Cancel
+                </button>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+
+      <ng-template #emptyOrders>
+        <app-empty-state
+          *ngIf="!loading && !errorMessage"
+          title="No orders match this view"
+          message="Adjust the filters, or create the first order for an active commodity instrument."
+          mark="▤"
+        >
+          <a class="btn btn--primary btn--sm" routerLink="/orders/new">Create order</a>
+        </app-empty-state>
+        <div class="table-loading" *ngIf="loading">
+          <span class="skeleton loading-row" *ngFor="let row of [1, 2, 3, 4, 5]"></span>
+        </div>
+      </ng-template>
+    </div>
+
+    <div class="paginator" *ngIf="pageInfo && pageInfo.totalElements > 0">
+      <div class="paginator__summary">
+        <span>
+          Showing {{ firstVisibleItem }}–{{ lastVisibleItem }} of {{ pageInfo.totalElements }}
+          order(s)
+        </span>
+        <label class="page-size">
+          <span class="label">Rows</span>
+          <select class="select select--compact" aria-label="Rows per page" [formControl]="sizeControl">
+            <option *ngFor="let size of pageSizes" [ngValue]="size">{{ size }}</option>
+          </select>
+        </label>
+      </div>
+      <div class="paginator__controls">
+        <button
+          type="button"
+          class="btn btn--ghost btn--sm"
+          [disabled]="pageInfo.first || loading"
+          (click)="previousPage()"
+        >
+          ← Prev
+        </button>
+        <button
+          *ngFor="let page of pageNumbers"
+          type="button"
+          class="btn btn--sm page-button"
+          [class.btn--primary]="page === pageInfo.page"
+          [class.btn--ghost]="page !== pageInfo.page"
+          [attr.aria-current]="page === pageInfo.page ? 'page' : null"
+          (click)="goToPage(page)"
+        >
+          {{ page + 1 }}
+        </button>
+        <button
+          type="button"
+          class="btn btn--ghost btn--sm"
+          [disabled]="pageInfo.last || loading"
+          (click)="nextPage()"
+        >
+          Next →
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <app-modal
+    *ngIf="showRejectModal && rejecting"
+    title="Reject order"
+    [subtitle]="
+      'Order ' +
+      rejecting.orderNumber +
+      ' will move to REJECTED. The requester can read the reason in the order history.'
+    "
+    (closed)="closeReject()"
+  >
+    <div class="alert alert--error" *ngIf="rejectError">
+      <strong>!</strong>
+      <span>{{ rejectError }}</span>
+    </div>
+
+    <form [formGroup]="rejectForm" (ngSubmit)="submitReject()" novalidate>
+      <div class="field">
+        <label class="label" for="rejectionReason">Rejection reason</label>
+        <textarea
+          id="rejectionReason"
+          class="textarea"
+          rows="4"
+          maxlength="500"
+          [class.input--invalid]="rejectReasonError()"
+          formControlName="reason"
+          placeholder="Explain why this order is being rejected"
+        ></textarea>
+        <span class="hint">
+          Required, 5–500 characters. The reason is stored on the order and shown to the requester.
+        </span>
+        <span class="error-text" *ngIf="rejectReasonError()">
+          Enter a reason between 5 and 500 characters.
+        </span>
+      </div>
+
+      <div class="form-actions">
+        <button type="button" class="btn btn--ghost" (click)="closeReject()" [disabled]="rejectSaving">
+          Cancel
+        </button>
+        <button type="submit" class="btn btn--danger" [disabled]="rejectSaving">
+          {{ rejectSaving ? 'Rejecting…' : 'Reject order' }}
+        </button>
+      </div>
+    </form>
+  </app-modal>
+</div>

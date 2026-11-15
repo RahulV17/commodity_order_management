@@ -1,0 +1,143 @@
+<div class="page">
+  <app-page-header
+    eyebrow="Administrator overview"
+    title="Operations dashboard"
+    subtitle="Order activity calculated by the order-service dashboard API. Counts are never hardcoded in Angular."
+  >
+    <button type="button" class="btn btn--ghost" (click)="load()" [disabled]="loading">
+      {{ loading ? 'Refreshing…' : 'Refresh' }}
+    </button>
+    <a class="btn btn--primary" routerLink="/orders/new">Create order</a>
+  </app-page-header>
+
+  <div class="alert alert--error" *ngIf="errorMessage">
+    <strong>!</strong>
+    <span>{{ errorMessage }}</span>
+  </div>
+
+  <section class="stat-grid" aria-label="Order statistics">
+    <article class="stat-card" style="--stat-color: var(--navy)">
+      <p class="stat-card__label">Total orders</p>
+      <p class="stat-card__value">
+        <span *ngIf="!loading">{{ stats?.totalOrders ?? 0 }}</span>
+        <span class="skeleton stat-skeleton" *ngIf="loading"></span>
+      </p>
+      <p class="stat-card__hint">All orders in PostgreSQL</p>
+    </article>
+
+    <article class="stat-card" style="--stat-color: var(--amber)">
+      <p class="stat-card__label">Pending approval</p>
+      <p class="stat-card__value">
+        <span *ngIf="!loading">{{ stats?.pendingOrders ?? 0 }}</span>
+        <span class="skeleton stat-skeleton" *ngIf="loading"></span>
+      </p>
+      <p class="stat-card__hint">{{ stats?.newOrders ?? 0 }} new draft(s) not submitted</p>
+    </article>
+
+    <article class="stat-card" style="--stat-color: var(--green)">
+      <p class="stat-card__label">Approved</p>
+      <p class="stat-card__value">
+        <span *ngIf="!loading">{{ stats?.approvedOrders ?? 0 }}</span>
+        <span class="skeleton stat-skeleton" *ngIf="loading"></span>
+      </p>
+      <p class="stat-card__hint">Cleared by an administrator</p>
+    </article>
+
+    <article class="stat-card" style="--stat-color: var(--red)">
+      <p class="stat-card__label">Rejected</p>
+      <p class="stat-card__value">
+        <span *ngIf="!loading">{{ stats?.rejectedOrders ?? 0 }}</span>
+        <span class="skeleton stat-skeleton" *ngIf="loading"></span>
+      </p>
+      <p class="stat-card__hint">{{ stats?.cancelledOrders ?? 0 }} cancelled order(s)</p>
+    </article>
+  </section>
+
+  <div class="dashboard-grid">
+    <section class="card">
+      <div class="card-heading">
+        <div>
+          <h2>Orders by status</h2>
+          <p>Backend aggregation across the full order table.</p>
+        </div>
+        <span class="badge badge--gold">{{ stats?.totalOrders ?? 0 }} total</span>
+      </div>
+      <div class="card__body">
+        <div class="status-row" *ngFor="let entry of statusEntries; trackBy: trackByStatus">
+          <div class="status-row__top">
+            <app-status-badge [status]="entry.status" />
+            <strong>{{ entry.count }}</strong>
+          </div>
+          <div class="status-bar">
+            <span [style.width.%]="barWidth(entry.count)"></span>
+          </div>
+        </div>
+        <p class="muted small" *ngIf="!loading && !statusEntries.length">
+          No order data is available yet.
+        </p>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="card-heading">
+        <div>
+          <h2>Recent orders</h2>
+          <p>The five newest orders, ready for review.</p>
+        </div>
+        <a class="btn btn--link btn--sm" routerLink="/orders">View all →</a>
+      </div>
+
+      <div class="table-wrap">
+        <table class="table" *ngIf="stats?.recentOrders?.length; else noRecent">
+          <thead>
+            <tr>
+              <th>Order</th>
+              <th>Instrument</th>
+              <th>Type</th>
+              <th class="num">Qty</th>
+              <th>Status</th>
+              <th>Created</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let order of stats?.recentOrders">
+              <td>
+                <a class="order-link" [routerLink]="['/orders', order.id]">
+                  {{ order.orderNumber }}
+                </a>
+              </td>
+              <td>
+                <strong>{{ order.instrumentSymbol }}</strong>
+                <div class="muted small">{{ order.instrumentName }}</div>
+              </td>
+              <td>
+                <span class="badge" [class]="'badge badge--' + order.orderType.toLowerCase()">
+                  {{ order.orderType }}
+                </span>
+              </td>
+              <td class="num">{{ order.quantity | number: '1.0-4' }}</td>
+              <td><app-status-badge [status]="order.status" /></td>
+              <td class="muted small">{{ order.createdAt | date: 'dd MMM, HH:mm' }}</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <ng-template #noRecent>
+          <app-empty-state
+            title="No recent orders"
+            message="Orders created by administrators or operations users will appear here."
+            mark="▤"
+          >
+            <a class="btn btn--primary btn--sm" routerLink="/orders/new">Create the first order</a>
+          </app-empty-state>
+        </ng-template>
+      </div>
+    </section>
+  </div>
+
+  <p class="dashboard-note">
+    <strong>How this is calculated:</strong> Angular calls
+    <span class="mono">GET /api/orders/dashboard</span> through the gateway. The order service runs a
+    grouped JPQL count and returns the recent list in the same response.
+  </p>
+</div>

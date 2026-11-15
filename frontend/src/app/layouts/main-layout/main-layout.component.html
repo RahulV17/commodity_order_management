@@ -1,0 +1,86 @@
+<div class="shell">
+  <div class="sidebar-backdrop" *ngIf="mobileMenuOpen" (click)="closeMenu()"></div>
+
+  <aside class="sidebar" [class.sidebar--open]="mobileMenuOpen">
+    <a class="brand" routerLink="/orders" (click)="closeMenu()">
+      <span class="brand__mark">NC</span>
+      <span class="brand__text">
+        <strong>Commodity Desk</strong>
+        <small>Order Management</small>
+      </span>
+    </a>
+
+    <p class="nav-label">Workspace</p>
+    <nav class="nav">
+      <a
+        *ngIf="isAdmin"
+        class="nav__item"
+        routerLink="/dashboard"
+        routerLinkActive="nav__item--active"
+        (click)="closeMenu()"
+      >
+        <span class="nav__icon" aria-hidden="true">▦</span>
+        <span>Dashboard</span>
+      </a>
+      <a
+        class="nav__item"
+        routerLink="/instruments"
+        routerLinkActive="nav__item--active"
+        (click)="closeMenu()"
+      >
+        <span class="nav__icon" aria-hidden="true">◆</span>
+        <span>Instruments</span>
+      </a>
+      <a
+        class="nav__item"
+        routerLink="/orders"
+        routerLinkActive="nav__item--active"
+        [routerLinkActiveOptions]="{ exact: false }"
+        (click)="closeMenu()"
+      >
+        <span class="nav__icon" aria-hidden="true">▤</span>
+        <span>Orders</span>
+      </a>
+    </nav>
+
+    <div class="sidebar__foot">
+      <div class="environment">
+        <span class="environment__dot"></span>
+        <div>
+          <strong>Local environment</strong>
+          <span>Angular → Gateway → Services</span>
+        </div>
+      </div>
+      <p class="sidebar__note">
+        Demo build for the NCDEX full-stack engineering challenge.
+      </p>
+    </div>
+  </aside>
+
+  <div class="content">
+    <header class="topbar">
+      <button class="menu-button" type="button" aria-label="Toggle navigation" (click)="toggleMenu()">
+        ☰
+      </button>
+      <div class="topbar__context">
+        <span class="topbar__eyebrow">NCDEX · Commodity operations</span>
+        <span class="topbar__title">Order management console</span>
+      </div>
+
+      <ng-container *ngIf="user$ | async as user">
+        <div class="user-chip">
+          <span class="user-chip__avatar">{{ user.username.charAt(0).toUpperCase() }}</span>
+          <span class="user-chip__identity">
+            <strong>{{ user.username }}</strong>
+            <small>{{ user.role === 'ADMIN' ? 'Administrator' : 'Operations user' }}</small>
+          </span>
+          <button type="button" class="btn btn--ghost btn--sm" (click)="logout()">Sign out</button>
+        </div>
+      </ng-container>
+    </header>
+
+    <main class="main">
+      <router-outlet />
+    </main>
+  </div>
+</div>

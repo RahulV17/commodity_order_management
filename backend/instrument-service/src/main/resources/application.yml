@@ -1,0 +1,76 @@
+server:
+  port: 8082
+
+spring:
+  application:
+    name: instrument-service
+  data:
+    mongodb:
+      uri: ${MONGODB_URI:mongodb://localhost:27017/instrumentdb}
+      auto-index-creation: true
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      timeout: 2s
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    consumer:
+      group-id: ${KAFKA_CONSUMER_GROUP:instrument-service}
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.trusted.packages: "com.example.instrument.dto"
+        spring.json.use.type.headers: false
+        spring.json.value.default.type: com.example.instrument.dto.OrderEvent
+    listener:
+      missing-topics-fatal: false
+  jackson:
+    serialization:
+      write-dates-as-timestamps: false
+
+eureka:
+  client:
+    service-url:
+      defaultZone: ${EUREKA_URL:http://localhost:8761/eureka/}
+  instance:
+    prefer-ip-address: true
+    instance-id: ${spring.application.name}:${server.port}
+
+app:
+  security:
+    jwt:
+      # Demo default only. Supply JWT_SECRET (>= 32 bytes) in any real environment.
+      secret: ${JWT_SECRET:change-me-in-production-ncdex-commodity-order-management-hmac-secret-2026}
+      expiration-minutes: ${JWT_EXPIRATION_MINUTES:120}
+  cache:
+    instrument-ttl-seconds: ${INSTRUMENT_CACHE_TTL_SECONDS:300}
+  kafka:
+    order-events-topic: ${ORDER_EVENTS_TOPIC:order-events}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: always
+  info:
+    env:
+      enabled: true
+
+info:
+  app:
+    name: ${spring.application.name}
+    description: Commodity instruments - MongoDB source of truth, Redis cache, Kafka consumer
+    version: 1.0.0
+
+logging:
+  level:
+    root: INFO
+    com.example.instrument: INFO
+    org.springframework.data.mongodb: WARN
+    org.springframework.kafka: INFO
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level [%thread] [%X{requestId:-}] %logger{36} - %msg%n"

@@ -1,0 +1,269 @@
+<div class="page">
+  <app-page-header
+    eyebrow="Order desk"
+    title="Create order"
+    subtitle="Pick an active instrument, choose the side, and set quantity and price. Saving creates the order as NEW and immediately submits it for approval."
+  >
+    <a class="btn btn--ghost" routerLink="/orders">Back to orders</a>
+  </app-page-header>
+
+  <div class="alert alert--error form-alert" *ngIf="formError">
+    <strong>!</strong>
+    <div class="alert__body">
+      <span>{{ formError }}</span>
+      <a *ngIf="createdOrder" class="alert__link" [routerLink]="['/orders', createdOrder.id]">
+        Open {{ createdOrder.orderNumber }}
+      </a>
+    </div>
+  </div>
+
+  <div class="form-layout">
+    <section class="card">
+      <div class="card__body">
+        <h2 class="section-title">Order details</h2>
+        <p class="section-subtitle">
+          Fields mirror the server-side validation. The instrument is resolved again through
+          OpenFeign when the order is created, so a stale screen cannot bypass the catalogue.
+        </p>
+
+        <div class="alert alert--error" *ngIf="instrumentError">
+          <strong>!</strong>
+          <div class="alert__body">
+            <span>{{ instrumentError }}</span>
+            <a class="alert__link" routerLink="/instruments">Open instruments</a>
+          </div>
+        </div>
+
+        <div class="alert alert--info" *ngIf="!loadingInstruments && !instrumentError && instruments.length === 0">
+          <strong>i</strong>
+          <span>
+            No active instruments are available. An administrator must create or activate an
+            instrument before an order can be placed.
+          </span>
+        </div>
+
+        <div class="skeleton instrument-skeleton" *ngIf="loadingInstruments"></div>
+
+        <form
+          *ngIf="!loadingInstruments"
+          [formGroup]="orderForm"
+          (ngSubmit)="save()"
+          novalidate
+        >
+          <div class="form-grid">
+            <div class="field span-2">
+              <label class="label" for="instrument">Instrument</label>
+              <select
+                id="instrument"
+                class="select"
+                formControlName="instrumentId"
+                [class.input--invalid]="fieldError('instrumentId')"
+              >
+                <option *ngFor="let instrument of instruments" [value]="instrument.id">
+                  {{ instrument.symbol }} — {{ instrument.name }}
+                </option>
+              </select>
+
+              <div class="instrument-preview" *ngIf="selectedInstrument">
+                <span class="preview-symbol">{{ selectedInstrument.symbol }}</span>
+                <div class="preview-meta">
+                  <strong>{{ selectedInstrument.name }}</strong>
+                  <span>
+                    {{ selectedInstrument.category | statusLabel }} · Indicative
+                    {{ selectedInstrument.indicativePrice | number: '1.2-4' }}
+                  </span>
+                </div>
+                <app-status-badge status="ACTIVE" />
+              </div>
+
+              <span class="hint">
+                Only active instruments are listed. The order-service asks the instrument-service
+                for the current record before saving.
+              </span>
+              <span class="error-text" *ngIf="fieldError('instrumentId')">
+                Select an instrument.
+              </span>
+            </div>
+
+            <div class="field span-2">
+              <span class="label">Order type</span>
+              <div class="type-toggle" role="group" aria-label="Order type">
+                <button
+                  type="button"
+                  class="type-toggle__option"
+                  [class.type-toggle__option--active]="orderForm.controls.orderType.value === 'BUY'"
+                  [attr.aria-pressed]="orderForm.controls.orderType.value === 'BUY'"
+                  (click)="setOrderType('BUY')"
+                >
+                  <span class="type-toggle__mark">▲</span>
+                  <span>
+                    <strong>Buy</strong>
+                    <small>Long the commodity</small>
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  class="type-toggle__option type-toggle__option--sell"
+                  [class.type-toggle__option--active]="orderForm.controls.orderType.value === 'SELL'"
+                  [attr.aria-pressed]="orderForm.controls.orderType.value === 'SELL'"
+                  (click)="setOrderType('SELL')"
+                >
+                  <span class="type-toggle__mark">▼</span>
+                  <span>
+                    <strong>Sell</strong>
+                    <small>Short the commodity</small>
+                  </span>
+                </button>
+              </div>
+            </div>
+
+            <div class="field">
+              <label class="label" for="quantity">Quantity</label>
+              <input
+                id="quantity"
+                class="input"
+                type="number"
+                min="0.0001"
+                step="0.0001"
+                formControlName="quantity"
+                [class.input--invalid]="fieldError('quantity')"
+              />
+              <span class="hint">Positive, up to 4 decimal places.</span>
+              <span class="error-text" *ngIf="fieldError('quantity') && !hasDecimalError('quantity')">
+                Enter a quantity greater than zero.
+              </span>
+              <span class="error-text" *ngIf="hasDecimalError('quantity')">
+                Quantity supports at most 4 decimal places.
+              </span>
+            </div>
+
+            <div class="field">
+              <label class="label" for="price">Price</label>
+              <input
+                id="price"
+                class="input"
+                type="number"
+                min="0.0001"
+                step="0.0001"
+                formControlName="price"
+                [class.input--invalid]="fieldError('price')"
+              />
+              <span class="hint">
+                Prefilled from the instrument's indicative price. You can overwrite it.
+              </span>
+              <span class="error-text" *ngIf="fieldError('price') && !hasDecimalError('price')">
+                Enter a price greater than zero.
+              </span>
+              <span class="error-text" *ngIf="hasDecimalError('price')">
+                Price supports at most 4 decimal places.
+              </span>
+            </div>
+
+            <div class="field span-2">
+              <label class="label" for="remarks">Remarks (optional)</label>
+              <textarea
+                id="remarks"
+                class="textarea"
+                rows="3"
+                maxlength="500"
+                formControlName="remarks"
+                placeholder="Internal note for the approver"
+              ></textarea>
+              <div class="remarks-meta">
+                <span class="hint">Visible to approvers and stored with the order.</span>
+                <span class="hint">{{ remarksLength }} / 500</span>
+              </div>
+              <span class="error-text" *ngIf="fieldError('remarks')">
+                Remarks must not exceed 500 characters.
+              </span>
+            </div>
+          </div>
+
+          <div class="value-strip">
+            <div>
+              <span class="label">Estimated order value</span>
+              <strong class="value-strip__amount">{{ estimatedValue | number: '1.2-2' }}</strong>
+            </div>
+            <span class="muted small">
+              Quantity × price. Indicative only — this demo has no live market feed.
+            </span>
+          </div>
+
+          <div class="form-actions">
+            <a class="btn btn--ghost" routerLink="/orders">Cancel</a>
+            <button type="submit" class="btn btn--primary" [disabled]="saving || !canCreate">
+              {{ saving ? 'Creating and submitting…' : 'Create & submit for approval' }}
+            </button>
+          </div>
+        </form>
+      </div>
+    </section>
+
+    <aside class="stack side-column">
+      <section class="card">
+        <div class="card__body">
+          <p class="eyebrow">Lifecycle</p>
+          <h2 class="section-title">What happens when you save</h2>
+          <ol class="timeline">
+            <li>
+              <span class="timeline__dot timeline__dot--new"></span>
+              <div>
+                <strong>NEW</strong>
+                <p>
+                  <code>POST /api/orders</code> validates the instrument through Feign, stores the
+                  order in PostgreSQL, and publishes an <code>order-events</code> Kafka message.
+                </p>
+              </div>
+            </li>
+            <li>
+              <span class="timeline__dot timeline__dot--submitted"></span>
+              <div>
+                <strong>SUBMITTED</strong>
+                <p>
+                  The screen immediately calls <code>PATCH /api/orders/&#123;id&#125;/submit</code>.
+                  The two calls stay explicit so the lifecycle is visible in the API and database.
+                </p>
+              </div>
+            </li>
+            <li>
+              <span class="timeline__dot timeline__dot--approved"></span>
+              <div>
+                <strong>APPROVED or REJECTED</strong>
+                <p>
+                  An administrator decides from the order detail or list. A rejection requires a
+                  reason; both decisions are final.
+                </p>
+              </div>
+            </li>
+            <li>
+              <span class="timeline__dot timeline__dot--cancelled"></span>
+              <div>
+                <strong>CANCELLED</strong>
+                <p>
+                  The requester (or an administrator) can cancel while the order is NEW or
+                  SUBMITTED. Approved and rejected orders are terminal.
+                </p>
+              </div>
+            </li>
+          </ol>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="card__body">
+          <p class="eyebrow">Rules</p>
+          <h2 class="section-title">Validation you can demonstrate</h2>
+          <ul class="rule-list">
+            <li>Instrument must exist and be active (Feign call to instrument-service).</li>
+            <li>Quantity and price must be positive, with at most 4 decimals.</li>
+            <li>Only an ADMIN can approve or reject; operations users own their orders.</li>
+            <li>
+              If the instrument-service is down, creation fails with 503 instead of storing an
+              unvalidated order.
+            </li>
+          </ul>
+        </div>
+      </section>
+    </aside>
+  </div>
+</div>

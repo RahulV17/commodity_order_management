@@ -1,0 +1,110 @@
+server:
+  port: 8081
+
+spring:
+  application:
+    name: order-service
+  datasource:
+    url: ${POSTGRES_URL:jdbc:postgresql://localhost:5432/orderdb}
+    username: ${POSTGRES_USER:orderuser}
+    password: ${POSTGRES_PASSWORD:orderpass}
+    hikari:
+      maximum-pool-size: 10
+      connection-timeout: 5000
+  jpa:
+    hibernate:
+      ddl-auto: update
+    open-in-view: false
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      properties:
+        spring.json.add.type.headers: false
+        max.block.ms: 3000
+        delivery.timeout.ms: 10000
+        request.timeout.ms: 5000
+    admin:
+      auto-create: true
+      fail-fast: false
+  cloud:
+    openfeign:
+      client:
+        config:
+          instrument-service:
+            # The default 3s read timeout is too tight on a loaded host (Docker
+            # Desktop + Mongo/Kafka competing for CPU): the first Feign call can
+            # block past it and surface as "Instrument service is unavailable".
+            connect-timeout: 10000
+            read-timeout: 20000
+            logger-level: basic
+  servlet:
+    multipart:
+      max-file-size: 5MB
+      max-request-size: 6MB
+  jackson:
+    serialization:
+      write-dates-as-timestamps: false
+
+eureka:
+  client:
+    service-url:
+      defaultZone: ${EUREKA_URL:http://localhost:8761/eureka/}
+  instance:
+    prefer-ip-address: true
+    instance-id: ${spring.application.name}:${server.port}
+
+app:
+  security:
+    jwt:
+      # Demo default only. Supply JWT_SECRET (>= 32 bytes) in any real environment.
+      secret: ${JWT_SECRET:change-me-in-production-ncdex-commodity-order-management-hmac-secret-2026}
+      expiration-minutes: ${JWT_EXPIRATION_MINUTES:120}
+  kafka:
+    order-events-topic: ${ORDER_EVENTS_TOPIC:order-events}
+  storage:
+    # local (default, no AWS account needed) or s3
+    type: ${STORAGE_TYPE:local}
+    local-dir: ${STORAGE_LOCAL_DIR:./uploads}
+    bucket: ${AWS_S3_BUCKET:}
+    region: ${AWS_REGION:us-east-1}
+    endpoint: ${AWS_S3_ENDPOINT:}
+  seed:
+    enabled: ${SEED_DATA:true}
+    admin-password: ${DEMO_ADMIN_PASSWORD:Admin@123}
+    operator-password: ${DEMO_OPERATOR_PASSWORD:Operator@123}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: always
+      probes:
+        enabled: true
+  info:
+    env:
+      enabled: true
+
+info:
+  app:
+    name: ${spring.application.name}
+    description: Orders - PostgreSQL, JWT, Feign, Kafka producer, S3-compatible documents
+    version: 1.0.0
+
+logging:
+  level:
+    root: INFO
+    com.example.order: INFO
+    org.hibernate.SQL: WARN
+    org.springframework.security: WARN
+    org.springframework.kafka: INFO
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level [%thread] [%X{requestId:-}] %logger{36} - %msg%n"
