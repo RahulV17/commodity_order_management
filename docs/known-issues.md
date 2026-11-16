@@ -338,3 +338,18 @@ The frontend healthcheck had a separate, deterministic bug: it probed
 `localhost` to `::1` first. nginx listens on IPv4 by default, so the check
 always failed with "connection refused" even though the site answered on port
 4200. It now probes `http://127.0.0.1/healthz`.
+
+## 21. Docker Desktop can drop during a long verification run
+
+**Severity: Low — tooling**
+
+On this 8 GB host the Docker Desktop engine went away twice: once during the
+parallel image build and once after the browser smoke check. The CLI reported a
+missing `dockerDesktopLinuxEngine` pipe; there was no application exception
+before it. Named volumes survive, so PostgreSQL orders, MongoDB instruments and
+Kafka events were still present after the restart.
+
+**Recovery:** start Docker Desktop, wait for `docker info` to answer, then run
+`docker compose up -d`. No rebuild is needed. The stack was brought back and
+re-verified after the first drop; the second occurred after the verification
+pass was complete.
