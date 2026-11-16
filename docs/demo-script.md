@@ -145,14 +145,17 @@ docker compose exec postgres psql -U orderuser -d orderdb \
 ```
 
 Expected: the new row is `SUBMITTED`, `created_by = operator`, and the number
-matches `ORD-YYYYMMDD-NNNN`.
+matches `ORD-XXXXXXXX` (eight uppercase hex characters from a UUID).
 
 **Show the Kafka event:**
 
 ```bash
-docker compose exec kafka /opt/kafka/bin/kafka-console-consumer.sh \
-  --bootstrap-server localhost:9092 --topic order-events --from-beginning --max-messages 5
+docker compose exec kafka rpk topic consume order-events --num 5 --offset start
 ```
+
+The Compose file runs Redpanda, so the broker CLI is `rpk` rather than the
+Apache Kafka scripts (see `docs/known-issues.md` item 19). From the host, the
+same topic is reachable at `localhost:9092` with any Kafka client.
 
 Expected: JSON with `eventId`, `eventType: ORDER_CREATED`, `orderId`,
 `instrumentId`, `quantity`, `orderType`, `createdBy`, `occurredAt`.

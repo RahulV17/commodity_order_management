@@ -255,13 +255,24 @@ The complete endpoint reference, payloads and error format is in
 | [`docs/api-documentation.md`](docs/api-documentation.md) | Every endpoint, query parameter, sample request/response and status code |
 | [`docs/LEARNING_GUIDE.md`](docs/LEARNING_GUIDE.md) | Build log, feature-by-feature walkthrough, concepts, all 15 live questions, live-modification drills |
 | [`docs/demo-script.md`](docs/demo-script.md) | A timed demonstration script with verification steps |
+| [`docs/verification.md`](docs/verification.md) | What was actually executed against the running stack, with observed results |
 | [`docs/known-issues.md`](docs/known-issues.md) | Honest limitations, risks and production follow-ups |
 
 ## Honest status
 
-- Core flows (login, instrument browsing, create/submit/approve/reject/cancel,
-  filtering/pagination/sorting, documents on local storage, Kafka event, Redis
-  cache) are implemented and exercised locally.
+- The full stack was built with Docker Compose and exercised through the
+  gateway on 2026-11-16: all services reported healthy, all three applications
+  registered with Eureka, and the API flow login -> create -> submit -> approve
+  / reject / cancel succeeded with the expected `403` and `409` negative cases.
+  Orders were listed with pagination, filtering and search; dashboard statistics
+  and a document upload/download round-trip were also verified. The exact
+  commands and observed results are recorded in
+  [`docs/verification.md`](docs/verification.md).
+- Backend tests: 31 pass (`mvn -B test`). Frontend tests: 22 pass
+  (`npm run test:ci`).
+- The Angular UI was built successfully and its components are covered by the
+  Jasmine specs; the API flows above were driven over HTTP. A scripted
+  click-through of every screen was not automated.
 - The S3 storage implementation exists and compiles, but it has **not** been
   integration-tested against a real bucket. Local storage is the demonstrated
   path.

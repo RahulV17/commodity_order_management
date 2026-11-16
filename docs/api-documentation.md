@@ -76,7 +76,7 @@ Response `200`:
   "content": [
     {
       "id": 42,
-      "orderNumber": "ORD-20260101-0001",
+      "orderNumber": "ORD-44D7E063",
       "instrumentId": "GOLD-001",
       "instrumentSymbol": "GOLD",
       "instrumentName": "Gold",
@@ -289,7 +289,7 @@ Every handled error uses the same `ApiError` body:
   "timestamp": "2026-01-01T10:00:00Z",
   "status": 409,
   "error": "Conflict",
-  "message": "Order ORD-20260101-0001 cannot transition from APPROVED to CANCELLED",
+  "message": "Order ORD-44D7E063 cannot transition from APPROVED to CANCELLED",
   "path": "/api/orders/42/cancel",
   "requestId": "f0d1...",
   "fieldErrors": null

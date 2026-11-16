@@ -922,7 +922,8 @@ toasts are for failures the user cannot attach to a specific input.
 change after orders are created, without the order request waiting for it.
 
 **Producer flow.** `OrderService.create` saves the order, then builds
-`OrderCreatedEvent` (`eventId`, `eventType`, `orderNumber`, `instrumentId`,
+`OrderCreatedEvent` (`eventId`, `eventType`, `orderId` - which carries the
+human-readable order number such as `ORD-44D7E063` - `instrumentId`,
 `quantity`, `orderType`, `createdBy`, `occurredAt`) and calls
 `kafkaTemplate.send(topic, instrumentId, event)`. The instrument id is the key,
 so all events for an instrument land in the same partition and preserve order.
@@ -1105,7 +1106,7 @@ Say: *"throw typed exceptions, map once in one place, consistent response
 shape."* Point at the `GlobalExceptionHandler` classes and the error format in
 the API docs.
 
-### Q6.12 "How do you write unit tests using Mockito?
+### Q6.12 "How do you write unit tests using Mockito?"
 
 Services are tested by mocking their collaborators. The test declares a mock
 repository or client, stubs the method under test, calls the real service, and
@@ -1126,7 +1127,7 @@ Kafka) with their health endpoints, then reproduce with a focused request.
 Say: *"trace id -> service log -> stack trace -> dependency health -> repro."*
 Point at the logging configuration and Actuator health endpoints.
 
-### Q6.14 "How does Docker Compose start the application?
+### Q6.14 "How does Docker Compose start the application?"
 
 `docker compose up -d` reads `docker-compose.yml`. Compose starts PostgreSQL,
 MongoDB, Kafka, and Redis first, then the two services, then Eureka and the
@@ -1277,16 +1278,25 @@ guide.
 
 ### Honest execution status
 
-Claim only what has been executed. As of this writing:
+Claim only what has been executed. As of 2026-11-16:
 
 - Backend compiles; 31 backend tests pass (`mvn -B test`).
 - Frontend builds; 22 Jasmine/Karma specs pass (`npm run test:ci`).
-- Architecture, API, known-issues, and demo-script documents are written.
-- Docker images were being built; full runtime and E2E verification results are
-  recorded below only when they actually run.
+- Five Docker images build, and the full Compose stack reported healthy: both
+  services and the gateway registered with Eureka; login, create, submit,
+  approve, reject and cancel worked through the gateway, including the expected
+  `403` and `409` negative cases.
+- Pagination, filtering, search, admin dashboard statistics, document
+  upload/list/download (with a SHA-256 round-trip check), Kafka publication and
+  consumption, and the Redis cache-aside/eviction cycle were exercised. The
+  commands and outputs are in [`verification.md`](verification.md).
+- Architecture, API, known-issues, verification and demo-script documents are
+  written.
 
-**Not claimed:** a real AWS S3 upload, a production deployment, or any
-end-to-end flow that has not been executed in this environment.
+**Not claimed:** a real AWS S3 upload (only the local storage path was
+exercised), a production deployment, or a scripted click-through of every
+Angular screen. UI behaviour is covered by the Jasmine specs; the end-to-end
+flows above were driven over HTTP through the gateway.
 
 ### Glossary
 

@@ -295,3 +295,46 @@ demonstration, not a bug; the UI does not depend on it for correctness.
 The gateway allows `http://localhost:*` and `http://127.0.0.1:*`. This supports
 the dev server and Docker frontend without configuration changes. A production
 deployment must restrict allowed origins to the real frontend hostnames.
+
+## 19. Local Kafka container choice (Redpanda)
+
+`apache/kafka:3.9.0` does not start on this host with the multi-listener
+configuration required by `docker-compose.yml` (internal listener for
+containers plus an external listener for host-run tools). Its entrypoint aborts
+during `kafka-storage format` with:
+
+```
+java.lang.IllegalArgumentException: advertised.listeners cannot use the
+nonroutable meta-address 0.0.0.0
+```
+
+`redpandadata/redpanda` is used instead. It speaks the Kafka wire protocol
+(Kafka API 3.x), so the Spring Kafka producer/consumer configuration is
+unchanged; only the broker image and the healthcheck command differ. If a
+strict Apache Kafka broker is required for the evaluation, the original
+environment-based configuration can be restored from git history and the same
+listeners applied with a single-listener setup (`KAFKA_ADVERTISED_LISTENERS`
+without the `EXTERNAL` pair).
+
+## 20. Healthcheck timeouts on a loaded host
+
+Two healthchecks were too tight on an 8 GB Windows host running Docker Desktop
+with Mongo and Kafka both at high CPU:
+
+- MongoDB's `mongosh --eval db.adminCommand('ping')` could exceed 5 s, marking a
+  healthy database DOWN and blocking every dependent service. Timeout raised
+  to 20 s with a 60 s start period.
+- The order-service Feign call to the instrument service timed out under CPU
+  contention ("Read timed out executing GET
+  http://instrument-service/api/instruments/GOLD-001"), surfacing to the user as
+  "Instrument service is unavailable". Feign connect/read timeouts raised from
+  2 s/3 s to 10 s/20 s.
+
+Both are infrastructure tuning issues rather than application defects, but they
+are documented because a slow first demo can look like a functional failure.
+
+The frontend healthcheck had a separate, deterministic bug: it probed
+`http://localhost/healthz`, and busybox `wget` in the nginx image resolves
+`localhost` to `::1` first. nginx listens on IPv4 by default, so the check
+always failed with "connection refused" even though the site answered on port
+4200. It now probes `http://127.0.0.1/healthz`.
