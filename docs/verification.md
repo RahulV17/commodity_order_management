@@ -181,13 +181,36 @@ E2E table in section 4 was recorded.
 The gateway test confirms the nginx `/api` proxy works, not just the backend
 routes.
 
-## 10. Not verified
+## 10. Browser smoke check
+
+The production Angular build was opened in Chrome through the Docker frontend
+(`http://localhost:4200`), not the dev server.
+
+| Screen | Observation |
+| --- | --- |
+| `/` without a session | redirected to `/login?returnUrl=%2Forders`; the auth guard works |
+| Login as `operator` | reached `/orders`; the table showed all 5 orders with number, instrument, side, quantity, price, value and status, plus `Submit`/`Cancel` on the `NEW` row |
+| Sign out | returned to `/login` with a "You have been signed out" notification |
+| Login as `admin` | reached the console; the sidebar exposed the Admin-only `Dashboard` link |
+| `/dashboard` | rendered the backend counts: total 5, pending 0, approved 1, rejected 1, NEW 1, cancelled 2, plus the by-status breakdown and five recent orders |
+| `/orders/2` | detail page with summary, honest lifecycle timeline, API trace, and the documents panel |
+| `/instruments` | 4 instruments with Kafka activity counts (1 each) and last-order timestamps |
+| `/orders/3` | rejection reason visible and the uploaded `e2e-proof.png` listed with a `Download` action |
+
+The browser check covered rendering, routing/guards, role-specific navigation,
+data binding from the APIs, and the document list. Button-driven mutations
+(create form submission, approve/reject dialogs, upload control) were exercised
+through the API E2E above and their component logic is covered by the Jasmine
+specs; they were not clicked in this browser pass.
+
+## 11. Not verified
 
 - A real AWS S3 upload (the code path exists; no bucket or credentials were
   used).
 - A production deployment of any kind.
-- A scripted browser click-through of every Angular screen. The production
-  build, unit tests and the API flow above were executed; UI behaviour is
-  covered by the Jasmine specs rather than a browser automation run.
+- An exhaustive browser automation run. A Chrome DevTools smoke check covered
+  the login page for both roles, the orders list, dashboard, order detail and
+  instrument catalogue (section 10). Button-driven state changes were verified
+  through the API, and component logic through the Jasmine specs.
 - Kafka delivery under broker failure, duplicate consumption, and multi-instance
   behaviour.

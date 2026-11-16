@@ -1293,10 +1293,14 @@ Claim only what has been executed. As of 2026-11-16:
 - Architecture, API, known-issues, verification and demo-script documents are
   written.
 
+A Chrome DevTools smoke check of the production build covered the login guard,
+both logins, the orders list, admin dashboard, order detail with a document, and
+the instrument catalogue. Button-driven mutations were driven through the API;
+their component logic is covered by the Jasmine specs.
+
 **Not claimed:** a real AWS S3 upload (only the local storage path was
-exercised), a production deployment, or a scripted click-through of every
-Angular screen. UI behaviour is covered by the Jasmine specs; the end-to-end
-flows above were driven over HTTP through the gateway.
+exercised), a production deployment, or an exhaustive scripted click-through of
+every Angular screen.
 
 ### Glossary
 

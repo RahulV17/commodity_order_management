@@ -270,9 +270,11 @@ The complete endpoint reference, payloads and error format is in
   [`docs/verification.md`](docs/verification.md).
 - Backend tests: 31 pass (`mvn -B test`). Frontend tests: 22 pass
   (`npm run test:ci`).
-- The Angular UI was built successfully and its components are covered by the
-  Jasmine specs; the API flows above were driven over HTTP. A scripted
-  click-through of every screen was not automated.
+- The Angular UI was built successfully and key screens (login for both roles,
+  orders list, dashboard, order detail with documents, instruments) were checked
+  in a real browser against the Docker stack. The API flows above were driven
+  over HTTP, and component logic is covered by the Jasmine specs; an exhaustive
+  scripted click-through of every screen was not automated.
 - The S3 storage implementation exists and compiles, but it has **not** been
   integration-tested against a real bucket. Local storage is the demonstrated
   path.
